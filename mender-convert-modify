@@ -257,17 +257,25 @@ if [ "${MENDER_DATA_PART_GROWFS}" == "y" ]; then
   MENDER_DATA_PART_FSTAB_OPTS="${MENDER_DATA_PART_FSTAB_OPTS},x-systemd.growfs"
 fi
 
+# Use key/value partuuid notation in fstab, avoids udev dependency at runtime with symlinked paths
+if [ "${MENDER_ENABLE_PARTUUID}" == "y" ]; then
+  boot_part_fstab='PARTUUID='$(disk_get_partuuid_from_device "${boot_part_device}")
+  data_part_fstab='PARTUUID='$(disk_get_partuuid_from_device "${data_part_device}")
+else
+  boot_part_fstab="${boot_part_device}"
+  data_part_fstab="${data_part_device}"
+fi
 
-log_info "Using boot partition device in fstab: $boot_part_device"
-log_info "Using data partition device in fstab: $data_part_device"
+log_info "Using boot partition entry in fstab: '${boot_part_fstab}'"
+log_info "Using data partition entry in fstab: '${data_part_fstab}'"
 
 sudo bash -c "cat <<- EOF > work/rootfs/etc/fstab
 # stock fstab - you probably want to override this with a machine specific one
 /dev/root            /                    auto       defaults              1  1
 proc                 /proc                proc       defaults              0  0
 
-${boot_part_device}   ${boot_part_mountpoint}          auto       defaults,sync    0  0
-${data_part_device}   /data          auto       ${MENDER_DATA_PART_FSTAB_OPTS}      0  0
+${boot_part_fstab}   ${boot_part_mountpoint}          auto       defaults,sync    0  0
+${data_part_fstab}   /data          auto       ${MENDER_DATA_PART_FSTAB_OPTS}      0  0
 EOF"
 
 log_info "Performing platform specific modifications (if any)"
